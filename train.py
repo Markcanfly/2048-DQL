@@ -23,7 +23,7 @@ EPSILON_DECAY = 0.01
 def agent() -> tf.keras.models.Sequential:
     init = tf.keras.initializers.HeUniform()
     model = tf.keras.models.Sequential([
-        tf.keras.layers.InputLayer(input_shape=(4,4)),
+        tf.keras.layers.InputLayer(input_shape=(1,16)),
         tf.keras.layers.Dense(L1, ACTIVATION, kernel_initializer=init),
         tf.keras.layers.Dropout(.2),
         tf.keras.layers.Dense(L2, ACTIVATION, kernel_initializer=init),
@@ -37,29 +37,29 @@ def train(replay_memory, model, target_model, done):
     learning_rate = LEARNING_RATE
     discount_factor = 0.618
 
-    MIN_REPLAY_SIZE = 200
+    MIN_REPLAY_SIZE = 128
     if len(replay_memory) < MIN_REPLAY_SIZE:
         return
 
-    batch_size = 64 * 2
+    batch_size = 32
     mini_batch = random.sample(replay_memory, batch_size)
-    current_states = np.array([transition[0] for transition in mini_batch])
+    current_states = np.array([tf.convert_to_tensor(transition[0].reshape(1, 16)) for transition in mini_batch])
     current_qs_list = model.predict(current_states)
-    new_current_states = np.array([transition[3] for transition in mini_batch])
+    new_current_states = np.array([tf.convert_to_tensor(transition[3].reshape(1, 16)) for transition in mini_batch])
     future_qs_list = target_model.predict(new_current_states)
 
     X = []
     Y = []
-    for index, (observation, action, reward, _, done) in enumerate(mini_batch):
+    for index, (state, action, reward, _, done) in enumerate(mini_batch):
         if not done:
             max_future_q = reward + discount_factor * np.max(future_qs_list[index])
         else:
             max_future_q = reward
 
-        current_qs = current_qs_list[index]
+        current_qs = current_qs_list[index][0]
         current_qs[action] = (1 - learning_rate) * current_qs[action] + learning_rate * max_future_q
 
-        X.append(observation)
+        X.append(state.flatten())
         Y.append(current_qs)
     model.fit(np.array(X), np.array(Y), batch_size=batch_size, verbose=0, shuffle=True)
 
@@ -79,7 +79,7 @@ epsilon = MAX_EPSILON # copy from hyperparam
 
 replay_memory = [] # TODO Replace with faster dtype (deque?)
 
-for _ in range(100):
+for episode in range(100):
     state = env.reset()
     episode_reward = 0
     done = False
@@ -90,11 +90,11 @@ for _ in range(100):
             action = random.choice((0,1,2,3))
         else: # Exploitation
             # Use Q-values
-            state_tensor = tf.convert_to_tensor(state)
-            action_q_values = main_model(state, training=False)
-            action = tf.argmax(action_q_values).numpy()
+            state_tensor = state.reshape([1, 16])
+            action_q_values = main_model(state_tensor, training=False)
+            action = np.argmax(action_q_values)
 
-        # TODO gradually decrease epsilon?
+        epsilon = MIN_EPSILON + (MAX_EPSILON - MIN_EPSILON) * np.exp(-EPSILON_DECAY * episode)
 
         state_next, reward, done, _ = env.step(action)
         replay_memory.append([state, action, reward, state_next, done])
