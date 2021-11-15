@@ -22,12 +22,13 @@ LEARNING_RATE = 0.7
 MIN_EPSILON = 0.01
 MAX_EPSILON = 1
 EPSILON_DECAY = 0.01
+BATCH_SIZE = 64
 
 with tf.device("/cpu:0"):
     def agent() -> tf.keras.models.Sequential:
         init = tf.keras.initializers.HeUniform()
         model = tf.keras.models.Sequential([
-            tf.keras.layers.InputLayer(input_shape=(1,16)),
+            tf.keras.layers.InputLayer(input_shape=(None, 16)),
             tf.keras.layers.Dense(L1, ACTIVATION, kernel_initializer=init),
             tf.keras.layers.Dropout(.2),
             tf.keras.layers.Dense(L2, ACTIVATION, kernel_initializer=init),
@@ -45,12 +46,12 @@ with tf.device("/cpu:0"):
         if len(replay_memory) < MIN_REPLAY_SIZE:
             return
 
-        batch_size = 32
+        batch_size = BATCH_SIZE
         mini_batch = random.sample(replay_memory, batch_size)
         current_states = np.array([tf.convert_to_tensor(transition[0].reshape(1, 16)) for transition in mini_batch])
-        current_qs_list = model.predict(current_states)
+        current_qs_list = model.predict_on_batch(current_states)
         new_current_states = np.array([tf.convert_to_tensor(transition[3].reshape(1, 16)) for transition in mini_batch])
-        future_qs_list = target_model.predict(new_current_states)
+        future_qs_list = target_model.predict_on_batch(new_current_states)
 
         X = []
         Y = []
