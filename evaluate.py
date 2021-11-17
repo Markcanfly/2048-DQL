@@ -3,7 +3,7 @@ import numpy as np
 def largest_tile(state):
     return np.max(state)
 
-def summary(stats) -> str:
+def summary(stats) -> str: # TODO better summary
     '''Takes dictionary in form of largest_tile:n_achieved'''
     s = ''
     n_episodes = sum(stats.values())
