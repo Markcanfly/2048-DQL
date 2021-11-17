@@ -13,15 +13,16 @@ import textwrap
 from datetime import datetime, timedelta
 
 # Set hyperparameters
-N_EPISODES = 500
+N_EPISODES = 50
+N_TEST = 100
 
 # Neuron numbers for the hidden layers
 L1 = 256
-L2 = 128
+L2 = 512
 L3 = 64
 ACTIVATION = 'tanh'
 OUTPUT_ACTIVATION = 'softmax'
-LEARNING_RATE = 0.7
+LEARNING_RATE = 0.85
 MIN_EPSILON = 0.01
 MAX_EPSILON = 1
 EPSILON_DECAY = 0.01
@@ -133,27 +134,53 @@ for episode in trange(N_EPISODES):
 training_end = datetime.now()
 print(summary(stats_train))
 
-# TODO separately test so that the initial training results don't litter the stats?
+stats_test = {}
+# Test
+for episode in range(N_TEST):
+    state = env.reset()
+    done = False
+    step_count = 0
+    while not done:
+        state_tensor = state.reshape([1, 16])
+        action_q_values = main_model(state_tensor, training=False)
+        action = np.argmax(action_q_values)
+        previous_state = state
+        state, _, done, _ = env.step(action)
+
+        # Explore if state doesn't change from move
+        if np.array_equal(state, previous_state):
+            state, _, done, _ = env.step(random.choice((0,1,2,3)))
+
+        step_count += 1
+
+        if done:
+            # Add to stats
+            max_tile = largest_tile(state)
+            stats_test[max_tile] = stats_test.get(max_tile, 0) + 1
+            break
+testing_end = datetime.now()
 
 # Log hyperparameters, results
 with open('logs.txt', mode='a', encoding='utf8') as logfile:
     logfile.write(textwrap.dedent(f'''
-    # Hyperparameters:
-    N_EPISODES: {N_EPISODES}
-    L1: {L1}
-    L2: {L2}
-    L3: {L3}
-    ACTIVATION: {ACTIVATION}
-    OUTPUT_ACTIVATION: {OUTPUT_ACTIVATION}
-    LEARNING_RATE: {LEARNING_RATE}
-    MIN_EPSILON: {MIN_EPSILON}
-    MAX_EPSILON: {MAX_EPSILON}
-    EPSILON_DECAY: {EPSILON_DECAY}
-    BATCH_SIZE: {BATCH_SIZE}
-    # Results: 
-    Training time: {training_end - begin}
-    {summary(stats_train)}
-    -------------------------------------------------------
-    '''))
+# Hyperparameters:
+N_EPISODES: {N_EPISODES}
+N_TEST: {N_TEST}
+L1: {L1}
+L2: {L2}
+L3: {L3}
+ACTIVATION: {ACTIVATION}
+OUTPUT_ACTIVATION: {OUTPUT_ACTIVATION}
+LEARNING_RATE: {LEARNING_RATE}
+MIN_EPSILON: {MIN_EPSILON}
+MAX_EPSILON: {MAX_EPSILON}
+EPSILON_DECAY: {EPSILON_DECAY}
+BATCH_SIZE: {BATCH_SIZE}
+# Results: 
+Training time: {training_end - begin}
+{summary(stats_train)}-------------------------------------------------------
+Testing time: {testing_end - training_end}
+{summary(stats_test)}
+'''))
 
 env.close()
