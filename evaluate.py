@@ -15,7 +15,7 @@ def summary(stats) -> str: # TODO better summary
             if highscore_ > highscore:
                 accumulated_score += stats[highscore_]
         accumulated_achieved[highscore] = accumulated_score
-    s += 'Score\tN_achieved\t%acc_achieved\n'
+    s += 'Score N_achieved %Achieved\n'
     for highest in sorted(stats.keys(), reverse=True):
-        s += f'{highest}:\t{stats[highest]}\t{round(accumulated_achieved[highest]/n_episodes,2)*100}%\n'
+        s += "{:<5} {:<10} {:<6}%\n".format(highest, stats[highest], round(accumulated_achieved[highest]/n_episodes*100,2))
     return s
