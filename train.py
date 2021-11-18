@@ -13,16 +13,16 @@ import textwrap
 from datetime import datetime, timedelta
 
 # Set hyperparameters
-N_EPISODES = 50
-N_TEST = 100
+N_EPISODES = 200
+N_TEST = 500
 
 # Neuron numbers for the hidden layers
 L1 = 256
 L2 = 512
 L3 = 64
 ACTIVATION = 'tanh'
-OUTPUT_ACTIVATION = 'softmax'
-LEARNING_RATE = 0.85
+OUTPUT_ACTIVATION = 'linear'
+LEARNING_RATE = 0.1
 MIN_EPSILON = 0.01
 MAX_EPSILON = 1
 EPSILON_DECAY = 0.01
@@ -136,7 +136,7 @@ print(summary(stats_train))
 
 stats_test = {}
 # Test
-for episode in range(N_TEST):
+for episode in trange(N_TEST):
     state = env.reset()
     done = False
     step_count = 0
