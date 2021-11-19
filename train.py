@@ -13,8 +13,8 @@ import textwrap
 from datetime import datetime, timedelta
 
 # Set hyperparameters
-N_EPISODES = 200
-N_TEST = 500
+N_EPISODES = 4000
+N_TEST = 3000
 
 # Neuron numbers for the hidden layers
 L1 = 256
@@ -30,12 +30,19 @@ BATCH_SIZE = 64
 
 begin = datetime.now()
 
+def random_state() -> np.array:
+    f = lambda n : 2**n
+    state = f(np.random.randint(low=0, high=7, size=(1,16), dtype='int64'))
+    for i in range(len(state[0])):
+        if state[0][i] == 1:
+            state[0][i] = 0
+    return state
+
 def agent() -> tf.keras.models.Sequential:
     init = tf.keras.initializers.HeUniform()
     model = tf.keras.models.Sequential([
         tf.keras.layers.InputLayer(input_shape=(None, 16)),
         tf.keras.layers.Dense(L1, ACTIVATION, kernel_initializer=init),
-        tf.keras.layers.Dropout(.2),
         tf.keras.layers.Dense(L2, ACTIVATION, kernel_initializer=init),
         tf.keras.layers.Dense(L3, ACTIVATION, kernel_initializer=init),
         tf.keras.layers.Dense(4, OUTPUT_ACTIVATION)
@@ -60,6 +67,7 @@ def train(replay_memory, model, target_model, done):
 
     X = []
     Y = []
+    # Calculate updated Q values using the Bellman equation
     for index, (state, action, reward, _, done) in enumerate(mini_batch):
         if not done:
             max_future_q = reward + discount_factor * np.max(future_qs_list[index])
@@ -103,7 +111,7 @@ for episode in trange(N_EPISODES):
         else: # Exploitation
             # Use Q-values
             state_tensor = state.reshape([1, 16])
-            action_q_values = main_model(state_tensor, training=False)
+            action_q_values = main_model(state_tensor, training=True)
             action = np.argmax(action_q_values)
 
         epsilon = MIN_EPSILON + (MAX_EPSILON - MIN_EPSILON) * np.exp(-EPSILON_DECAY * episode)
@@ -142,7 +150,7 @@ for episode in trange(N_TEST):
     step_count = 0
     while not done:
         state_tensor = state.reshape([1, 16])
-        action_q_values = main_model(state_tensor, training=False)
+        action_q_values = target_model(state_tensor, training=False)
         action = np.argmax(action_q_values)
         previous_state = state
         state, _, done, _ = env.step(action)
