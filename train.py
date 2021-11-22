@@ -20,9 +20,9 @@ N_TEST = 3000
 L1 = 256
 L2 = 512
 L3 = 64
-ACTIVATION = 'tanh'
+ACTIVATION = 'linear'
 OUTPUT_ACTIVATION = 'linear'
-LEARNING_RATE = 0.1
+LEARNING_RATE = 0.01
 MIN_EPSILON = 0.01
 MAX_EPSILON = 1
 EPSILON_DECAY = 0.01
@@ -39,7 +39,7 @@ def random_state() -> np.array:
     return state
 
 def agent() -> tf.keras.models.Sequential:
-    init = tf.keras.initializers.HeUniform()
+    init = tf.keras.initializers.RandomUniform()
     model = tf.keras.models.Sequential([
         tf.keras.layers.InputLayer(input_shape=(None, 16)),
         tf.keras.layers.Dense(L1, ACTIVATION, kernel_initializer=init),
