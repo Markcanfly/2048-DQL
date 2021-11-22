@@ -6,7 +6,14 @@ def largest_tile(state):
 def summary(stats) -> str: # TODO better summary
     '''Takes dictionary in form of largest_tile:n_achieved'''
     s = ''
+
     n_episodes = sum(stats.values())
+    # Calculate average score
+    avg_score = 0
+    for score, n in stats.items():
+        avg_score += score * n / n_episodes
+    s += f'Average score: {round(avg_score)}\n'
+    # Draw table
     maxtiles_sorted_by_key = [(k, v) for k,v in sorted(stats.items(), key=lambda x: x[0])]
     accumulated_achieved = {}
     for highscore in stats:
