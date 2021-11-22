@@ -12,7 +12,7 @@ def summary(stats) -> str: # TODO better summary
     for highscore in stats:
         accumulated_score = 0
         for highscore_ in stats:
-            if highscore_ > highscore:
+            if highscore_ >= highscore:
                 accumulated_score += stats[highscore_]
         accumulated_achieved[highscore] = accumulated_score
     s += 'Score N_achieved %Achieved\n'
