@@ -15,18 +15,19 @@ from datetime import datetime, timedelta
 # Set hyperparameters
 N_EPISODES = 300
 N_TEST = 300
-
-# Neuron numbers for the hidden layers
-L1 = 256
-L2 = 512
-L3 = 64
 ACTIVATION = 'relu'
 OUTPUT_ACTIVATION = 'linear'
+BELLMAN_DISCOUNT = 0.8
 LEARNING_RATE = 0.01
 MIN_EPSILON = 0.01
 MAX_EPSILON = 1
 EPSILON_DECAY = 0.01
 BATCH_SIZE = 64
+# Neuron numbers for the hidden layers
+L1 = 256
+L2 = 512
+L3 = 64
+
 
 begin = datetime.now()
 
@@ -52,7 +53,7 @@ def agent() -> tf.keras.models.Sequential:
 
 def train(replay_memory, model, target_model, done):
     learning_rate = LEARNING_RATE
-    discount_factor = 0.618
+    discount_factor = BELLMAN_DISCOUNT
 
     MIN_REPLAY_SIZE = 128
     if len(replay_memory) < MIN_REPLAY_SIZE:
