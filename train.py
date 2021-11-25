@@ -13,14 +13,14 @@ import textwrap
 from datetime import datetime, timedelta
 
 # Set hyperparameters
-N_EPISODES = 4000
-N_TEST = 3000
+N_EPISODES = 300
+N_TEST = 300
 
 # Neuron numbers for the hidden layers
 L1 = 256
 L2 = 512
 L3 = 64
-ACTIVATION = 'linear'
+ACTIVATION = 'relu'
 OUTPUT_ACTIVATION = 'linear'
 LEARNING_RATE = 0.01
 MIN_EPSILON = 0.01
@@ -39,7 +39,7 @@ def random_state() -> np.array:
     return state
 
 def agent() -> tf.keras.models.Sequential:
-    init = tf.keras.initializers.RandomUniform()
+    init = tf.keras.initializers.GlorotUniform()
     model = tf.keras.models.Sequential([
         tf.keras.layers.InputLayer(input_shape=(None, 16)),
         tf.keras.layers.Dense(L1, ACTIVATION, kernel_initializer=init),
