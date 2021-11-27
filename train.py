@@ -21,13 +21,13 @@ BELLMAN_DISCOUNT = 0.72
 LEARNING_RATE = 0.0001
 MIN_EPSILON = 0.001
 MAX_EPSILON = 1
-EPSILON_DECAY = 0.01
+EPSILON_DECAY = 0.005
 BATCH_SIZE = 64
 TRAIN_STEP = 12
 # Neuron numbers for the hidden layers
-L1 = 256
+L1 = 1024
 L2 = 512
-L3 = 64
+L3 = 256
 
 begin = datetime.now()
 with tf.device("/cpu:0"):
