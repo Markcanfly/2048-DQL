@@ -3,17 +3,19 @@
 
 import numpy as np
 import tensorflow as tf
+from tensorflow.python.types.core import Value
 import gym_2048
 import gym
 import random
 from evaluate import largest_tile, summary
 from tqdm import trange
+from typing import List, Tuple
 
 import textwrap
 from datetime import datetime, timedelta
 
 # Set hyperparameters
-N_EPISODES = 500
+N_EPISODES = 100
 N_TEST = 300
 ACTIVATION = 'relu'
 OUTPUT_ACTIVATION = 'linear'
@@ -31,16 +33,7 @@ L3 = 256
 
 begin = datetime.now()
 with tf.device("/cpu:0"):
-
-    def random_state() -> np.array:
-        f = lambda n : 2**n
-        state = f(np.random.randint(low=0, high=7, size=(1,16), dtype='int64'))
-        for i in range(len(state[0])):
-            if state[0][i] == 1:
-                state[0][i] = 0
-        return state
-
-    def agent() -> tf.keras.models.Sequential:
+    def new_model() -> tf.keras.models.Sequential:
         init = tf.keras.initializers.GlorotUniform()
         model = tf.keras.models.Sequential([
             tf.keras.layers.InputLayer(input_shape=(None, 16)),
@@ -51,8 +44,54 @@ with tf.device("/cpu:0"):
         ])
         model.compile(loss=tf.keras.losses.Huber(), optimizer=tf.keras.optimizers.Adam(learning_rate=LEARNING_RATE), metrics=['accuracy'])
         return model
-
-    def train(replay_memory, model, target_model, done):
+    class Agent():
+        def __init__(self, env):
+            self.env = env
+            self.model = new_model()
+            self.replay_memory = []
+            self.offset_index = 0
+        def reset_memory(self):
+            self.replay_memory = []
+        def action(self, training=False) -> int:
+            if len(self.replay_memory) > 0 and np.array_equal(self.replay_memory[-1][0], self.replay_memory[-1][3]):
+                self.offset_index = (self.offset_index + 1) % 4 # Roll over
+            else:
+                self.offset_index = 0
+            action_q_values = self.model(self.env.board.reshape([1, 16]), training=training).numpy()
+            # (action, q) pairs
+            actions_sorted_by_q: List[Tuple[int,float]] = sorted(list(enumerate(action_q_values[0])), reverse=True, key=lambda x: x[1])
+            # Offset is number of times the same board has been seen
+            action = actions_sorted_by_q[self.offset_index][0]
+            # Make sure we don't repeat the previous action (this could happen if it was random)
+            if self.offset_index > 0 and action == self.replay_memory[-1][1]:
+                action = actions_sorted_by_q[0][0]
+            return action
+        def step(self, training=False, epsilon=None) -> bool:
+            '''Takes a step, and returns whether done'''
+            if training and epsilon is None:
+                raise ValueError('Must specify epsilon when training')
+            
+            if training and random.random() < epsilon:
+                action = random.randint(0, 3)
+            else:
+                action = self.action(training=training)
+            state = self.env.board
+            state_next, reward, done, _ = self.env.step(action)
+            if training:
+                self.replay_memory.append([state, action, reward, state_next, done])
+            else:
+                self.replay_memory = [[state, action, reward, state_next, done]] # Only used to check if previous move yielded change
+            return done
+    
+    def random_state() -> np.array:
+        f = lambda n : 2**n
+        state = f(np.random.randint(low=0, high=7, size=(1,16), dtype='int64'))
+        for i in range(len(state[0])):
+            if state[0][i] == 1:
+                state[0][i] = 0
+        return state
+    
+    def train(replay_memory, model, target_model):
         learning_rate = LEARNING_RATE
         discount_factor = BELLMAN_DISCOUNT
 
@@ -89,16 +128,16 @@ with tf.device("/cpu:0"):
     env.render()
 
     # Train this with each move
-    main_model = agent()
+    agent = Agent(env)
     # Update every nth step
-    target_model = agent()
+    target_model = new_model()
     
     epsilon = MAX_EPSILON # copy from hyperparam
 
     stats_train = {}
     manual_abort = False
     for episode in trange(N_EPISODES):
-        replay_memory = [] # TODO Replace with faster dtype (deque?)
+        agent.reset_memory()
         state = env.reset()
         episode_reward = 0
         if manual_abort:
@@ -106,36 +145,25 @@ with tf.device("/cpu:0"):
         done = False
         step_count = 0
         while not done:
-            # Decide next action
-            if random.random() < epsilon: # Exploration
-                action = random.choice((0,1,2,3))
-            else: # Exploitation
-                # Use Q-values
-                state_tensor = state.reshape([1, 16])
-                action_q_values = main_model(state_tensor, training=True)
-                action = np.argmax(action_q_values)
-
+            agent.step(training=True, epsilon=epsilon)
+            
             epsilon = MIN_EPSILON + (MAX_EPSILON - MIN_EPSILON) * np.exp(-EPSILON_DECAY * episode)
-
-            state_next, reward, done, _ = env.step(action)
-            replay_memory.append([state, action, reward, state_next, done])
+            
+            done = agent.replay_memory[-1][4]
+            reward = agent.replay_memory[-1][2]
             episode_reward += reward
 
             if step_count % TRAIN_STEP == 0 or done:
-                train(replay_memory, main_model, target_model, done)
+                train(agent.replay_memory, agent.model, target_model)
 
-            state = state_next
-
-            max_tile = largest_tile(state)
-
+            max_tile = largest_tile(agent.env.board)
             if done:
                 # Add to stats
                 stats_train[max_tile] = stats_train.get(max_tile, 0) + 1
-                if step_count >= 32:
+                if step_count >= BATCH_SIZE:
                     # Copy over weights to target model
-                    target_model.set_weights(main_model.get_weights())
+                    target_model.set_weights(agent.model.get_weights())
                 break
-            
             step_count += 1
 
     training_end = datetime.now()
@@ -143,26 +171,19 @@ with tf.device("/cpu:0"):
 
     stats_test = {}
     # Test
+    
     for episode in trange(N_TEST):
-        state = env.reset()
+        env.reset()
+        agent.reset_memory()
         done = False
         step_count = 0
         while not done:
-            state_tensor = state.reshape([1, 16])
-            action_q_values = target_model(state_tensor, training=False)
-            action = np.argmax(action_q_values)
-            previous_state = state
-            state, _, done, _ = env.step(action)
-
-            # Explore if state doesn't change from move
-            if np.array_equal(state, previous_state):
-                state, _, done, _ = env.step(random.choice((0,1,2,3)))
-
+            agent.step()
+            done = agent.replay_memory[-1][4]
             step_count += 1
-
             if done:
                 # Add to stats
-                max_tile = largest_tile(state)
+                max_tile = largest_tile(agent.env.board)
                 stats_test[max_tile] = stats_test.get(max_tile, 0) + 1
                 break
     testing_end = datetime.now()
