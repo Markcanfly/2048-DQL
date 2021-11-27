@@ -15,7 +15,7 @@ import textwrap
 from datetime import datetime, timedelta
 
 # Set hyperparameters
-N_EPISODES = 100
+N_EPISODES = 1000
 N_TEST = 300
 ACTIVATION = 'relu'
 OUTPUT_ACTIVATION = 'linear'
@@ -24,12 +24,17 @@ LEARNING_RATE = 0.0001
 MIN_EPSILON = 0.001
 MAX_EPSILON = 1
 EPSILON_DECAY = 0.005
-BATCH_SIZE = 64
-TRAIN_STEP = 12
+BATCH_SIZE = 32
+TRAIN_STEP = 16
 # Neuron numbers for the hidden layers
 L1 = 1024
 L2 = 512
 L3 = 256
+
+def log2(arr: np.array) -> np.array:
+    array = np.log2(arr.copy())
+    array[array == -np.inf] = 0
+    return array    
 
 begin = datetime.now()
 with tf.device("/cpu:0"):
@@ -57,7 +62,9 @@ with tf.device("/cpu:0"):
                 self.offset_index = (self.offset_index + 1) % 4 # Roll over
             else:
                 self.offset_index = 0
-            action_q_values = self.model(self.env.board.reshape([1, 16]), training=training).numpy()
+            tensor = self.env.board.reshape([1, 16])
+            tensor = log2(tensor)
+            action_q_values = self.model(tensor, training=training).numpy()
             # (action, q) pairs
             actions_sorted_by_q: List[Tuple[int,float]] = sorted(list(enumerate(action_q_values[0])), reverse=True, key=lambda x: x[1])
             # Offset is number of times the same board has been seen
