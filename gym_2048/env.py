@@ -49,7 +49,6 @@ class Base2048Env(gym.Env):
 
   def step(self, action: int):
     """Rotate board aligned with left action"""
-    previous_board = self.board.copy()
     # Align board action with left action
     rotated_obs = np.rot90(self.board, k=action)
     reward, updated_obs = self._slide_left_and_merge(rotated_obs)
@@ -60,10 +59,6 @@ class Base2048Env(gym.Env):
 
     done = self.is_done()
 
-    if np.array_equal(self.board, previous_board):
-      # Discourage agent from making a move that doesn't change the board
-      reward = -max(self.board.flatten())
-    
     return self.board, reward, done, {}
 
   def is_done(self):
