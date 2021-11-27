@@ -13,16 +13,17 @@ import textwrap
 from datetime import datetime, timedelta
 
 # Set hyperparameters
-N_EPISODES = 300
+N_EPISODES = 500
 N_TEST = 300
 ACTIVATION = 'relu'
 OUTPUT_ACTIVATION = 'linear'
-BELLMAN_DISCOUNT = 0.8
-LEARNING_RATE = 0.001
-MIN_EPSILON = 0.01
+BELLMAN_DISCOUNT = 0.72
+LEARNING_RATE = 0.0001
+MIN_EPSILON = 0.001
 MAX_EPSILON = 1
 EPSILON_DECAY = 0.01
-BATCH_SIZE = 32
+BATCH_SIZE = 64
+TRAIN_STEP = 12
 # Neuron numbers for the hidden layers
 L1 = 256
 L2 = 512
@@ -55,8 +56,7 @@ with tf.device("/cpu:0"):
         learning_rate = LEARNING_RATE
         discount_factor = BELLMAN_DISCOUNT
 
-        MIN_REPLAY_SIZE = 64
-        if len(replay_memory) < MIN_REPLAY_SIZE:
+        if len(replay_memory) < BATCH_SIZE * 2:
             return
 
         batch_size = BATCH_SIZE
@@ -92,16 +92,17 @@ with tf.device("/cpu:0"):
     main_model = agent()
     # Update every nth step
     target_model = agent()
-
-    episode_count = 0
+    
     epsilon = MAX_EPSILON # copy from hyperparam
 
     stats_train = {}
-
+    manual_abort = False
     for episode in trange(N_EPISODES):
         replay_memory = [] # TODO Replace with faster dtype (deque?)
         state = env.reset()
         episode_reward = 0
+        if manual_abort:
+            break
         done = False
         step_count = 0
         while not done:
@@ -120,7 +121,7 @@ with tf.device("/cpu:0"):
             replay_memory.append([state, action, reward, state_next, done])
             episode_reward += reward
 
-            if step_count % 5 == 0 or done:
+            if step_count % TRAIN_STEP == 0 or done:
                 train(replay_memory, main_model, target_model, done)
 
             state = state_next
@@ -136,8 +137,6 @@ with tf.device("/cpu:0"):
                 break
             
             step_count += 1
-        
-        episode_count += 1
 
     training_end = datetime.now()
     print(summary(stats_train))
