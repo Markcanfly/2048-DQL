@@ -32,9 +32,7 @@ L2 = 512
 L3 = 256
 
 def log2(arr: np.array) -> np.array:
-    array = np.log2(arr.copy())
-    array[array == -np.inf] = 0
-    return array    
+    return np.ma.log2(arr).filled(0)
 
 begin = datetime.now()
 with tf.device("/cpu:0"):
